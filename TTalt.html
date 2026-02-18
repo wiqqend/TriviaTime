@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trivia Time</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f0e8;
+    --surface: #ffffff;
+    --ink: #1a1a18;
+    --muted: #7a7668;
+    --easy: #2d6a4f;
+    --easy-light: #d8f3dc;
+    --hard: #c1440e;
+    --hard-light: #fde8de;
+    --accent: #e8b400;
+    --border: #ddd8cc;
+    --track-h: 52px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+  }
+
+  /* Subtle grid texture */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px);
+    background-size: 32px 32px;
+    pointer-events: none; z-index: 0;
+  }
+
+  .screen { display: none; position: relative; z-index: 1; }
+  .screen.active { display: block; }
+
+  /* ─── SETUP ──────────────────────────────────────────── */
+  #setup {
+    min-height: 100vh;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    gap: 32px;
+  }
+  #setup.active { display: flex; }
+
+  .wordmark {
+    text-align: center;
+    line-height: 1;
+  }
+  .wordmark h1 {
+    font-size: clamp(3.5rem, 10vw, 6.5rem);
+    font-weight: 800;
+    letter-spacing: -2px;
+    line-height: 0.9;
+  }
+  .wordmark h1 em {
+    font-style: normal;
+    color: var(--easy);
+    display: block;
+  }
+  .wordmark p {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-top: 10px;
+  }
+
+  .setup-panel {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 4px;
+    width: 100%;
+    max-width: 500px;
+    overflow: hidden;
+  }
+
+  .panel-section {
+    padding: 24px 28px;
+    border-bottom: 2px solid var(--border);
+  }
+  .panel-section:last-child { border-bottom: none; }
+
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+
+  .player-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .player-row {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .player-swatch {
+    width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;
+  }
+  .player-row input {
+    flex: 1;
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+    border-radius: 3px;
+    color: var(--ink);
+    font-family: 'Syne', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    padding: 9px 12px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .player-row input:focus { border-color: var(--ink); }
+  .remove-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--muted); font-size: 1.1rem; line-height: 1;
+    padding: 4px 6px;
+    border-radius: 3px;
+    transition: color 0.15s, background 0.15s;
+  }
+  .remove-btn:hover { color: var(--hard); background: var(--hard-light); }
+
+  .add-player-btn {
+    background: none; border: 1.5px dashed var(--border);
+    border-radius: 3px; cursor: pointer;
+    color: var(--muted); font-family: 'Syne', sans-serif;
+    font-weight: 700; font-size: 0.85rem;
+    padding: 9px 14px; width: 100%;
+    letter-spacing: 1px;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .add-player-btn:hover { border-color: var(--ink); color: var(--ink); }
+
+  .route-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .route-option {
+    border: 2px solid var(--border);
+    border-radius: 4px;
+    padding: 16px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    position: relative;
+  }
+  .route-option.selected.easy-route { border-color: var(--easy); background: var(--easy-light); }
+  .route-option.selected.hard-route { border-color: var(--hard); background: var(--hard-light); }
+  .route-option:hover:not(.selected) { border-color: var(--muted); }
+
+  .route-option .route-name {
+    font-weight: 800; font-size: 1rem; letter-spacing: 0.5px;
+    display: block; margin-bottom: 4px;
+  }
+  .easy-route .route-name { color: var(--easy); }
+  .hard-route .route-name { color: var(--hard); }
+
+  .route-option .route-desc {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem; color: var(--muted);
+    line-height: 1.5;
+  }
+  .route-option .check {
+    position: absolute; top: 10px; right: 12px;
+    font-size: 0.8rem; opacity: 0;
+    font-family: 'DM Mono', monospace;
+    color: var(--ink);
+  }
+  .route-option.selected .check { opacity: 1; }
+
+  .start-btn {
+    width: 100%; border: none; cursor: pointer;
+    background: var(--ink); color: var(--bg);
+    font-family: 'Syne', sans-serif; font-weight: 800;
+    font-size: 1.1rem; letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 18px; border-radius: 3px;
+    transition: background 0.15s, transform 0.12s;
+  }
+  .start-btn:hover { background: var(--easy); transform: translateY(-1px); }
+  .start-btn:active { transform: translateY(0); }
+
+  /* ─── GAME LAYOUT ────────────────────────────────────── */
+  #game {
+    min-height: 100vh;
+    display: none;
+    flex-direction: column;
+  }
+  #game.active { display: flex; }
+
+  .game-header {
+    background: var(--surface);
+    border-bottom: 2px solid var(--border);
+    padding: 14px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex-wrap: wrap;
+    position: sticky; top: 0; z-index: 20;
+  }
+
+  .header-title {
+    font-weight: 800; font-size: 1.2rem; letter-spacing: -0.5px;
+  }
+
+  .route-tag {
+    font-family: 'DM Mono', monospace; font-size: 0.7rem;
+    letter-spacing: 2px; text-transform: uppercase;
+    padding: 4px 10px; border-radius: 2px;
+  }
+  .route-tag.easy { background: var(--easy-light); color: var(--easy); }
+  .route-tag.hard { background: var(--hard-light); color: var(--hard); }
+
+  .header-turn {
+    font-family: 'DM Mono', monospace; font-size: 0.8rem;
+    color: var(--muted);
+  }
+  .header-turn strong { color: var(--ink); font-size: 0.9rem; }
+
+  .quit-btn {
+    background: none; border: 1.5px solid var(--border);
+    border-radius: 3px; cursor: pointer;
+    font-family: 'Syne', sans-serif; font-weight: 700;
+    font-size: 0.8rem; color: var(--muted); padding: 6px 14px;
+    letter-spacing: 1px; transition: border-color 0.15s, color 0.15s;
+  }
+  .quit-btn:hover { border-color: var(--hard); color: var(--hard); }
+
+  .game-body {
+    flex: 1; display: grid;
+    grid-template-columns: 1fr 340px;
+    grid-template-rows: auto 1fr;
+    gap: 0;
+    max-width: 1100px; margin: 0 auto; width: 100%;
+    padding: 28px 24px;
+    align-items: start;
+  }
+
+  @media (max-width: 780px) {
+    .game-body { grid-template-columns: 1fr; padding: 16px; }
+  }
+
+  /* ─── LEFT COLUMN ─────────────────────────────────────── */
+  .left-col { grid-column: 1; display: flex; flex-direction: column; gap: 20px; padding-right: 24px; }
+  @media (max-width: 780px) { .left-col { padding-right: 0; } }
+
+  /* Scoreboard */
+  .scoreboard {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .scoreboard-head {
+    padding: 10px 16px;
+    border-bottom: 2px solid var(--border);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--muted);
+  }
+  .player-entries { display: flex; flex-direction: column; }
+  .player-entry {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.2s;
+  }
+  .player-entry:last-child { border-bottom: none; }
+  .player-entry.active-player { background: var(--bg); }
+  .player-entry.active-player .pe-name { font-weight: 800; }
+  .pe-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .pe-name { font-weight: 700; font-size: 0.9rem; flex: 1; }
+  .pe-pos {
+    font-family: 'DM Mono', monospace; font-size: 0.75rem;
+    color: var(--muted); white-space: nowrap;
+  }
+  .active-indicator {
+    font-family: 'DM Mono', monospace; font-size: 0.6rem;
+    letter-spacing: 1px; background: var(--ink); color: var(--bg);
+    padding: 2px 6px; border-radius: 2px;
+  }
+
+  /* Board Track */
+  .board-wrap {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .board-head {
+    padding: 10px 16px;
+    border-bottom: 2px solid var(--border);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--muted);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .board-legend { display: flex; gap: 12px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 0.65rem; color: var(--muted); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; }
+
+  .track {
+    padding: 16px;
+    display: flex; flex-wrap: wrap; gap: 5px;
+  }
+
+  .tile {
+    width: 38px; height: 38px;
+    border-radius: 3px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem; font-weight: 500;
+    color: var(--muted);
+    border: 1.5px solid var(--border);
+    position: relative; flex-shrink: 0;
+    transition: transform 0.15s;
+  }
+  .tile.easy-tile { background: var(--easy-light); border-color: #b7dfc4; color: var(--easy); }
+  .tile.hard-tile { background: var(--hard-light); border-color: #f5c9b8; color: var(--hard); }
+  .tile.start-tile { background: var(--bg); border-style: dashed; }
+  .tile.finish-tile {
+    background: var(--accent);
+    border-color: #c99800;
+    color: var(--ink);
+    font-size: 0.65rem;
+    font-weight: 800;
+  }
+
+  .tile-pips {
+    position: absolute; top: -8px; left: 50%;
+    transform: translateX(-50%);
+    display: flex; gap: 2px;
+  }
+  .pip {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid var(--surface);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.4rem; color: #fff;
+    transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    flex-shrink: 0;
+  }
+
+  /* ─── RIGHT COLUMN ────────────────────────────────────── */
+  .right-col { grid-column: 2; display: flex; flex-direction: column; gap: 16px; }
+  @media (max-width: 780px) { .right-col { grid-column: 1; } }
+
+  /* Card */
+  .card-stack {
+    position: relative;
+    min-height: 280px;
+  }
+  /* Placeholder stack layers */
+  .card-stack::before, .card-stack::after {
+    content: '';
+    position: absolute;
+    left: 6px; right: -6px;
+    top: 6px; bottom: -6px;
+    border-radius: 6px;
+    border: 2px solid var(--border);
+    background: var(--surface);
+    z-index: 0;
+  }
+  .card-stack::before { left: 12px; right: -12px; top: 12px; bottom: -12px; z-index: -1; }
+
+  .card {
+    position: relative; z-index: 1;
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    padding: 0;
+    overflow: hidden;
+    background: var(--surface);
+    animation: cardSlide 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    min-height: 260px;
+    display: flex; flex-direction: column;
+  }
+  @keyframes cardSlide {
+    from { opacity: 0; transform: translateY(-16px) rotate(-1deg); }
+    to { opacity: 1; transform: translateY(0) rotate(0); }
+  }
+
+  .card.easy-card { border-color: #b7dfc4; }
+  .card.hard-card { border-color: #f5c9b8; }
+
+  .card-header {
+    padding: 14px 18px 12px;
+    border-bottom: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .easy-card .card-header { background: var(--easy-light); border-color: #b7dfc4; }
+  .hard-card .card-header { background: var(--hard-light); border-color: #f5c9b8; }
+
+  .card-type-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem; letter-spacing: 3px; text-transform: uppercase;
+    font-weight: 500;
+  }
+  .easy-card .card-type-label { color: var(--easy); }
+  .hard-card .card-type-label { color: var(--hard); }
+
+  .card-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem; color: var(--muted);
+  }
+
+  .card-body {
+    flex: 1; padding: 24px 18px 16px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+
+  .card-text {
+    font-size: 1.15rem; font-weight: 700; line-height: 1.4;
+    color: var(--ink);
+  }
+
+  .card-placeholder {
+    margin-top: 8px;
+    border: 1.5px dashed var(--border);
+    border-radius: 4px;
+    padding: 14px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .card-placeholder-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem; letter-spacing: 2px; text-transform: uppercase; color: var(--muted);
+  }
+  .card-placeholder-line {
+    height: 10px; background: var(--border); border-radius: 2px;
+  }
+  .card-placeholder-line.short { width: 60%; }
+
+  .card-footer {
+    padding: 12px 18px;
+    border-top: 1px solid var(--border);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem; color: var(--muted); line-height: 1.5;
+  }
+
+  /* Roll button — primary CTA on card deal */
+  .roll-card-btn {
+    width: 100%; border: none; cursor: pointer;
+    background: var(--ink); color: var(--bg);
+    border-radius: 3px; padding: 18px;
+    font-family: 'Syne', sans-serif; font-weight: 800;
+    font-size: 1.05rem; letter-spacing: 2px; text-transform: uppercase;
+    transition: background 0.15s, transform 0.12s;
+  }
+  .roll-card-btn:hover:not(:disabled) { background: var(--easy); transform: translateY(-1px); }
+  .roll-card-btn:active { transform: translateY(0); }
+  .roll-card-btn:disabled { opacity: 0.35; cursor: default; transform: none; }
+
+  /* Dice Panel */
+  .dice-panel {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    display: none;
+  }
+  .dice-panel.show { display: block; animation: fadeUp 0.25s ease; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  .dice-head {
+    padding: 10px 16px;
+    border-bottom: 2px solid var(--border);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem; letter-spacing: 3px; text-transform: uppercase; color: var(--muted);
+  }
+  .dice-body { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+
+  .dice-results { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+  .die-face {
+    width: 52px; height: 52px;
+    background: var(--ink); color: var(--bg);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.6rem;
+    animation: diePop 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    box-shadow: 3px 3px 0 rgba(0,0,0,0.15);
+  }
+  @keyframes diePop {
+    from { transform: scale(0.3) rotate(-20deg); opacity: 0; }
+    to { transform: scale(1) rotate(0); opacity: 1; }
+  }
+
+  .dice-result-text {
+    font-family: 'DM Mono', monospace; font-size: 0.8rem; line-height: 1.5;
+  }
+  .dice-result-text.fwd { color: var(--easy); }
+  .dice-result-text.bwd { color: var(--hard); }
+
+  .next-turn-btn {
+    width: 100%; border: 2px solid var(--ink); background: none; cursor: pointer;
+    border-radius: 3px; padding: 14px;
+    font-family: 'Syne', sans-serif; font-weight: 800;
+    font-size: 0.95rem; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--ink);
+    transition: background 0.15s, color 0.15s;
+    display: none;
+  }
+  .next-turn-btn.show { display: block; }
+  .next-turn-btn:hover { background: var(--ink); color: var(--bg); }
+
+  /* Challenge outcome panel — shown after accepting and rolling */
+  .outcome-panel {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    display: none;
+  }
+  .outcome-panel.show { display: block; animation: fadeUp 0.25s ease; }
+  .outcome-head {
+    padding: 10px 16px;
+    border-bottom: 2px solid var(--border);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem; letter-spacing: 3px; text-transform: uppercase; color: var(--muted);
+  }
+  .outcome-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .outcome-desc {
+    font-family: 'DM Mono', monospace; font-size: 0.72rem;
+    color: var(--muted); line-height: 1.5;
+  }
+  .outcome-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .outcome-btn {
+    border: none; cursor: pointer; padding: 14px 10px;
+    font-family: 'Syne', sans-serif; font-weight: 800;
+    font-size: 0.9rem; letter-spacing: 1px; text-transform: uppercase;
+    transition: background 0.15s;
+  }
+  .outcome-btn.passed { background: var(--easy-light); color: var(--easy); }
+  .outcome-btn.passed:hover { background: var(--easy); color: #fff; }
+  .outcome-btn.failed { background: var(--hard-light); color: var(--hard); }
+  .outcome-btn.failed:hover { background: var(--hard); color: #fff; }
+
+  /* ─── WIN SCREEN ──────────────────────────────────────── */
+  #win {
+    min-height: 100vh; display: none;
+    flex-direction: column; align-items: center; justify-content: center;
+    padding: 40px 20px; gap: 24px; text-align: center;
+  }
+  #win.active { display: flex; }
+
+  .win-eyebrow {
+    font-family: 'DM Mono', monospace; font-size: 0.75rem;
+    letter-spacing: 4px; text-transform: uppercase; color: var(--muted);
+  }
+
+  .win-name {
+    font-size: clamp(3rem, 12vw, 7rem);
+    font-weight: 800; letter-spacing: -2px; line-height: 0.9;
+  }
+  .win-name span { color: var(--easy); }
+
+  .win-sub {
+    font-family: 'DM Mono', monospace; font-size: 0.8rem;
+    color: var(--muted); max-width: 280px; line-height: 1.6;
+  }
+
+  .play-again-btn {
+    background: var(--ink); color: var(--bg);
+    border: none; cursor: pointer; border-radius: 3px;
+    padding: 16px 40px;
+    font-family: 'Syne', sans-serif; font-weight: 800;
+    font-size: 1rem; letter-spacing: 2px; text-transform: uppercase;
+    transition: background 0.15s;
+  }
+  .play-again-btn:hover { background: var(--easy); }
+
+  .win-divider {
+    width: 60px; height: 3px; background: var(--accent); border-radius: 2px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══ SETUP ═══════════════════════════════════════════════ -->
+<div class="screen active" id="setup">
+  <div class="wordmark">
+    <h1>Trivia<em>Time</em></h1>
+    <p>The Card Game</p>
+  </div>
+
+  <div class="setup-panel">
+    <div class="panel-section">
+      <div class="section-label">Players</div>
+      <div class="player-list" id="playerList"></div>
+      <button class="add-player-btn" onclick="addPlayer()" style="margin-top:10px">+ Add Player</button>
+    </div>
+
+    <div class="panel-section">
+      <div class="section-label">Route</div>
+      <div class="route-grid">
+        <div class="route-option easy-route selected" id="easyRouteOpt" onclick="selectRoute('easy')">
+          <span class="route-name">Easy Route</span>
+          <span class="route-desc">30 tiles — Mostly easy cards, some hard cards. Fail costs 1 die back.</span>
+          <span class="check">Selected</span>
+        </div>
+        <div class="route-option hard-route" id="hardRouteOpt" onclick="selectRoute('hard')">
+          <span class="route-name">Hard Route</span>
+          <span class="route-desc">20 tiles — Hard cards only. Fail costs 2 dice back.</span>
+          <span class="check">Selected</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <button class="start-btn" onclick="startGame()">Start Game</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ GAME ════════════════════════════════════════════════ -->
+<div class="screen" id="game">
+  <div class="game-header">
+    <div style="display:flex;align-items:center;gap:12px">
+      <span class="header-title">Trivia Time</span>
+      <span class="route-tag" id="routeTag">Easy</span>
+    </div>
+    <div class="header-turn">Current turn: <strong id="currentPlayerName">—</strong></div>
+    <button class="quit-btn" onclick="goHome()">Quit</button>
+  </div>
+
+  <div class="game-body">
+    <!-- LEFT -->
+    <div class="left-col">
+      <!-- Scoreboard -->
+      <div class="scoreboard">
+        <div class="scoreboard-head">Players</div>
+        <div class="player-entries" id="playerEntries"></div>
+      </div>
+
+      <!-- Board -->
+      <div class="board-wrap">
+        <div class="board-head">
+          Board
+          <div class="board-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:var(--easy-light);border:1px solid #b7dfc4"></div> Easy</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--hard-light);border:1px solid #f5c9b8"></div> Hard</div>
+          </div>
+        </div>
+        <div class="track" id="track"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="right-col">
+      <!-- Card Stack -->
+      <div class="card-stack">
+        <div class="card" id="cardEl">
+          <div class="card-header">
+            <span class="card-type-label" id="cardTypeLabel">Easy Card</span>
+            <span class="card-num" id="cardNum">—</span>
+          </div>
+          <div class="card-body">
+            <div class="card-text" id="cardText">Press Roll to draw a challenge.</div>
+            <!-- Placeholder lines for card content -->
+            <div class="card-placeholder">
+              <div class="card-placeholder-label">Challenge</div>
+              <div class="card-placeholder-line"></div>
+              <div class="card-placeholder-line short"></div>
+            </div>
+          </div>
+          <div class="card-footer" id="cardFooter">
+            Complete the challenge to move forward — fail and move backward
+          </div>
+        </div>
+      </div>
+
+      <!-- Roll Dice (primary CTA) -->
+      <button class="roll-card-btn" id="rollCardBtn" onclick="rollForCard()">Roll the Dice</button>
+
+      <!-- Dice Result Panel -->
+      <div class="dice-panel" id="dicePanel">
+        <div class="dice-head">Result</div>
+        <div class="dice-body">
+          <div class="dice-results" id="diceResults"></div>
+          <div class="dice-result-text" id="diceResultText"></div>
+        </div>
+      </div>
+
+      <!-- Pass / Fail outcome -->
+      <div class="outcome-panel" id="outcomePanel">
+        <div class="outcome-head">Did they complete it?</div>
+        <div class="outcome-body">
+          <div class="outcome-desc" id="outcomeDesc"></div>
+          <div class="outcome-btns">
+            <button class="outcome-btn passed" onclick="resolveOutcome('passed')">Passed</button>
+            <button class="outcome-btn failed" onclick="resolveOutcome('failed')">Failed</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Next Turn -->
+      <button class="next-turn-btn" id="nextTurnBtn" onclick="nextTurn()">Next Player</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ WIN ═════════════════════════════════════════════════ -->
+<div class="screen" id="win">
+  <div class="win-eyebrow">Winner</div>
+  <div class="win-name"><span id="winnerName">Player</span></div>
+  <div class="win-divider"></div>
+  <div class="win-sub">Congratulations on reaching the finish line first.</div>
+  <button class="play-again-btn" onclick="goHome()">Play Again</button>
+</div>
+
+<script>
+// ─── CARDS ──────────────────────────────────────────────────
+const EASY_CARDS = [
+  { text: 'Arm wrestle the player in last place.' },
+  { text: 'Swap board positions with the player in last place.' },
+  { text: 'Do your best impression of a celebrity for 10 seconds.' },
+  { text: 'Tell a joke. If nobody laughs, you still move forward.' },
+  { text: 'Speak in a made-up accent until your next turn.' },
+  { text: 'Do a dramatic reading of the last message in your phone.' },
+  { text: 'Give each other player a genuine compliment.' },
+  { text: 'Attempt a moonwalk across the room.' },
+  { text: 'Name 5 animals that start with S — in under 10 seconds.' },
+  { text: 'Let the player to your left choose your next snack.' },
+  { text: 'Hold a plank for 15 seconds.' },
+  { text: 'Recite the alphabet backwards as fast as you can.' },
+];
+
+const HARD_CARDS = [
+  { text: 'Shout "EARLY WORM GETS THE BIRD" at full volume.' },
+  { text: 'Reenact a forbidden meme chosen by the group.' },
+  { text: 'Drop down and give 20 push-ups right now.' },
+  { text: 'Sing the chorus of a song chosen by the player in first place.' },
+  { text: 'Do the worm. On the floor. No exceptions.' },
+  { text: 'Let another player post anything on your social story for 30 seconds.' },
+  { text: 'Speak only in rhymes until your next turn.' },
+  { text: 'Confess the most embarrassing thing on your camera roll — describe it in detail.' },
+  { text: 'Let the group pick a smell for you to rate with a full review.' },
+  { text: 'Impersonate the player to your right. They decide if it is accurate.' },
+  { text: 'Call a contact at random. You have 20 seconds to make them laugh.' },
+  { text: 'Perform a 30-second stand-up routine on a topic assigned by the group.' },
+];
+
+// ─── CONFIG ──────────────────────────────────────────────────
+const ROUTES = {
+  easy: { length: 30, hardChance: 0.25, label: 'Easy Route', declineDice: 1 },
+  hard: { length: 20, hardChance: 1.00, label: 'Hard Route', declineDice: 2 },
+};
+
+const SWATCH_COLORS = ['#2d6a4f','#c1440e','#1d6fa4','#7b3fa0','#b06000','#1a6060','#8b3a62','#3a5fa0'];
+
+// ─── STATE ───────────────────────────────────────────────────
+let state = { players: [], route: 'easy', currentIdx: 0, phase: 'ready', pendingRoll: 0, cardCount: 0 };
+
+// ─── SETUP ──────────────────────────────────────────────────
+const DEFAULT_NAMES = ['Alex', 'Blake', 'Casey', 'Drew', 'Emery', 'Finley', 'Gray', 'Harper'];
+let playerCount = 2;
+
+function initSetup() {
+  playerCount = 2;
+  document.getElementById('playerList').innerHTML = '';
+  for (let i = 0; i < playerCount; i++) appendPlayerRow(i, DEFAULT_NAMES[i]);
+}
+
+function appendPlayerRow(i, name) {
+  const list = document.getElementById('playerList');
+  const row = document.createElement('div');
+  row.className = 'player-row';
+  row.dataset.idx = i;
+  row.innerHTML = `
+    <div class="player-swatch" style="background:${SWATCH_COLORS[i % SWATCH_COLORS.length]}"></div>
+    <input type="text" value="${name}" placeholder="Player name" maxlength="14">
+    <button class="remove-btn" onclick="removePlayer(this)" title="Remove">x</button>
+  `;
+  list.appendChild(row);
+}
+
+function addPlayer() {
+  if (playerCount >= 8) return;
+  appendPlayerRow(playerCount, DEFAULT_NAMES[playerCount] || `Player ${playerCount + 1}`);
+  playerCount++;
+}
+
+function removePlayer(btn) {
+  const rows = document.querySelectorAll('#playerList .player-row');
+  if (rows.length <= 2) return;
+  btn.closest('.player-row').remove();
+  playerCount = document.querySelectorAll('#playerList .player-row').length;
+}
+
+function selectRoute(r) {
+  state.route = r;
+  document.getElementById('easyRouteOpt').classList.toggle('selected', r === 'easy');
+  document.getElementById('hardRouteOpt').classList.toggle('selected', r === 'hard');
+}
+
+function startGame() {
+  const inputs = document.querySelectorAll('#playerList input');
+  state.players = Array.from(inputs).map((inp, i) => ({
+    name: inp.value.trim() || `Player ${i + 1}`,
+    pos: 0,
+    color: SWATCH_COLORS[i % SWATCH_COLORS.length],
+  }));
+  if (state.players.length < 2) { alert('Add at least 2 players.'); return; }
+
+  state.currentIdx = 0;
+  state.cardCount = 0;
+  state.pendingRoll = 0;
+  state.phase = 'ready';
+
+  buildBoard();
+  buildScoreboard();
+  dealCard();
+  updateHeader();
+
+  showScreen('game');
+}
+
+// ─── BOARD ──────────────────────────────────────────────────
+function buildBoard() {
+  const { length, hardChance } = ROUTES[state.route];
+  const track = document.getElementById('track');
+  track.innerHTML = '';
+
+  for (let i = 0; i <= length; i++) {
+    const tile = document.createElement('div');
+    tile.id = `tile-${i}`;
+    tile.className = 'tile';
+
+    if (i === 0) {
+      tile.classList.add('start-tile');
+      tile.textContent = 'GO';
+    } else if (i === length) {
+      tile.classList.add('finish-tile');
+      tile.textContent = 'END';
+    } else {
+      tile.classList.add(Math.random() < hardChance ? 'hard-tile' : 'easy-tile');
+      tile.textContent = i;
+    }
+
+    const pips = document.createElement('div');
+    pips.className = 'tile-pips';
+    tile.appendChild(pips);
+    track.appendChild(tile);
+  }
+  updateBoard();
+}
+
+function updateBoard() {
+  document.querySelectorAll('.tile-pips').forEach(el => el.innerHTML = '');
+  state.players.forEach(p => {
+    const tile = document.getElementById(`tile-${p.pos}`);
+    if (!tile) return;
+    const pips = tile.querySelector('.tile-pips');
+    const pip = document.createElement('div');
+    pip.className = 'pip';
+    pip.style.background = p.color;
+    pip.title = p.name;
+    pips.appendChild(pip);
+  });
+}
+
+// ─── SCOREBOARD ─────────────────────────────────────────────
+function buildScoreboard() {
+  const el = document.getElementById('playerEntries');
+  el.innerHTML = '';
+  state.players.forEach((p, i) => {
+    const entry = document.createElement('div');
+    entry.className = 'player-entry';
+    entry.id = `pe-${i}`;
+    entry.innerHTML = `
+      <div class="pe-dot" style="background:${p.color}"></div>
+      <div class="pe-name">${p.name}</div>
+      <div class="pe-pos" id="pe-pos-${i}">Tile 0</div>
+      <div class="active-indicator" id="pe-active-${i}" style="display:none">Turn</div>
+    `;
+    el.appendChild(entry);
+  });
+  updateScoreboard();
+}
+
+function updateScoreboard() {
+  state.players.forEach((p, i) => {
+    const entry = document.getElementById(`pe-${i}`);
+    const pos = document.getElementById(`pe-pos-${i}`);
+    const act = document.getElementById(`pe-active-${i}`);
+    if (!entry) return;
+    entry.classList.toggle('active-player', i === state.currentIdx);
+    pos.textContent = `Tile ${p.pos}`;
+    act.style.display = i === state.currentIdx ? 'inline-block' : 'none';
+  });
+}
+
+// ─── HEADER ─────────────────────────────────────────────────
+function updateHeader() {
+  const p = state.players[state.currentIdx];
+  document.getElementById('currentPlayerName').textContent = p.name;
+  const tag = document.getElementById('routeTag');
+  tag.textContent = ROUTES[state.route].label;
+  tag.className = `route-tag ${state.route}`;
+}
+
+// ─── CARD ───────────────────────────────────────────────────
+function dealCard() {
+  const { hardChance } = ROUTES[state.route];
+  const isHard = Math.random() < hardChance;
+  const deck = isHard ? HARD_CARDS : EASY_CARDS;
+  const card = deck[Math.floor(Math.random() * deck.length)];
+  state.currentCard = { ...card, isHard };
+  state.cardCount++;
+
+  const cardEl = document.getElementById('cardEl');
+  cardEl.className = `card ${isHard ? 'hard-card' : 'easy-card'}`;
+  cardEl.style.animation = 'none';
+  cardEl.offsetHeight;
+  cardEl.style.animation = '';
+
+  document.getElementById('cardTypeLabel').textContent = isHard ? 'Hard Card' : 'Easy Card';
+  document.getElementById('cardNum').textContent = `#${String(state.cardCount).padStart(3, '0')}`;
+  document.getElementById('cardText').textContent = card.text;
+  document.getElementById('cardFooter').textContent =
+    'Complete the challenge to move forward — fail and move backward';
+
+  // Reset UI
+  document.getElementById('rollCardBtn').disabled = false;
+  document.getElementById('rollCardBtn').textContent = 'Roll the Dice';
+  document.getElementById('dicePanel').classList.remove('show');
+  document.getElementById('outcomePanel').classList.remove('show');
+  document.getElementById('nextTurnBtn').classList.remove('show');
+  document.getElementById('diceResults').innerHTML = '';
+  document.getElementById('diceResultText').textContent = '';
+
+  state.phase = 'ready';
+}
+
+// ─── ROLL FOR CARD (initial roll — determines movement stakes) ─
+function rollForCard() {
+  const { length } = ROUTES[state.route];
+
+  // Roll 1 die — this is the "potential forward" amount
+  const roll = Math.ceil(Math.random() * 6);
+  state.pendingRoll = roll;
+
+  // Show dice result
+  const resultsEl = document.getElementById('diceResults');
+  resultsEl.innerHTML = '';
+  const die = document.createElement('div');
+  die.className = 'die-face';
+  die.textContent = roll;
+  resultsEl.appendChild(die);
+
+  document.getElementById('diceResultText').textContent =
+    `Rolled a ${roll} — pass the challenge to move forward ${roll}, fail to move back ${roll}`;
+  document.getElementById('diceResultText').className = 'dice-result-text';
+
+  document.getElementById('rollCardBtn').disabled = true;
+  document.getElementById('dicePanel').classList.add('show');
+
+  // Set outcome description
+  const numDiceBack = state.route === 'hard' ? 2 : 1;
+  document.getElementById('outcomeDesc').textContent =
+    state.route === 'hard'
+      ? `Pass: move forward ${roll} tiles. Fail: roll 2 dice and move backward.`
+      : `Pass: move forward ${roll} tiles. Fail: move backward ${roll} tiles.`;
+
+  document.getElementById('outcomePanel').classList.add('show');
+  state.phase = 'outcome';
+}
+
+// ─── OUTCOME ────────────────────────────────────────────────
+function resolveOutcome(result) {
+  const { length } = ROUTES[state.route];
+  const player = state.players[state.currentIdx];
+  document.getElementById('outcomePanel').classList.remove('show');
+
+  if (result === 'passed') {
+    // Move forward by the rolled amount
+    player.pos = Math.min(player.pos + state.pendingRoll, length);
+    const resultEl = document.getElementById('diceResultText');
+    resultEl.textContent = `Challenge passed — moved forward to tile ${player.pos}`;
+    resultEl.className = 'dice-result-text fwd';
+
+    updateBoard();
+    updateScoreboard();
+
+    if (player.pos >= length) {
+      setTimeout(() => {
+        document.getElementById('winnerName').textContent = player.name;
+        showScreen('win');
+      }, 700);
+      return;
+    }
+    document.getElementById('nextTurnBtn').classList.add('show');
+
+  } else {
+    // Failed — roll penalty dice backward
+    const numDice = state.route === 'hard' ? 2 : 1;
+    const penaltyRolls = Array.from({ length: numDice }, () => Math.ceil(Math.random() * 6));
+    const penaltyTotal = penaltyRolls.reduce((a, b) => a + b, 0);
+
+    player.pos = Math.max(player.pos - penaltyTotal, 0);
+
+    // Show penalty dice
+    const resultsEl = document.getElementById('diceResults');
+    resultsEl.innerHTML = '';
+    penaltyRolls.forEach((r, i) => {
+      const die = document.createElement('div');
+      die.className = 'die-face';
+      die.style.background = 'var(--hard)';
+      die.style.animationDelay = `${i * 0.1}s`;
+      die.textContent = r;
+      resultsEl.appendChild(die);
+    });
+
+    const resultEl = document.getElementById('diceResultText');
+    resultEl.textContent = `Challenge failed — moved back ${penaltyTotal} to tile ${player.pos}`;
+    resultEl.className = 'dice-result-text bwd';
+
+    updateBoard();
+    updateScoreboard();
+    document.getElementById('nextTurnBtn').classList.add('show');
+  }
+
+  state.phase = 'done';
+}
+
+// ─── NEXT TURN ───────────────────────────────────────────────
+function nextTurn() {
+  state.currentIdx = (state.currentIdx + 1) % state.players.length;
+  updateHeader();
+  updateScoreboard();
+  dealCard();
+}
+
+// ─── SCREENS ─────────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function goHome() {
+  initSetup();
+  selectRoute('easy');
+  showScreen('setup');
+}
+
+// ─── INIT ────────────────────────────────────────────────────
+initSetup();
+</script>
+</body>
+</html>
