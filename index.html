@@ -86,23 +86,31 @@
 
     <!-- RIGHT -->
     <div class="right-col">
-      <!-- Card Stack -->
-      <div class="card-stack">
-        <div class="card" id="cardEl">
-          <div class="card-header">
-            <span class="card-type-label" id="cardTypeLabel">Easy Card</span>
-            <span class="card-num" id="cardNum">—</span>
+
+      <!-- 8 face-down cards to pick from -->
+      <div class="card-pick-label" id="cardPickLabel">Pick a card</div>
+      <div class="card-grid" id="cardGrid"></div>
+
+      <!-- Revealed card (shown after pick) -->
+      <div class="card-reveal-wrap" id="cardRevealWrap" style="display:none">
+        <div class="card-flipper flipped" id="cardFlipper">
+          <div class="card-face card-back">
+            <img src="Back.jpg" alt="Card back">
           </div>
-          <div class="card-body">
-            <div class="card-text" id="cardText">Press Roll to draw a challenge.</div>
-            <div class="card-placeholder">
-              <div class="card-placeholder-label">Challenge</div>
-              <div class="card-placeholder-line"></div>
-              <div class="card-placeholder-line short"></div>
+          <div class="card-face card-front" id="cardEl">
+            <img src="Front.jpg" alt="Card front" class="card-front-bg">
+            <div class="card-front-content">
+              <div class="card-header">
+                <span class="card-type-label" id="cardTypeLabel">Easy Card</span>
+                <span class="card-num" id="cardNum">—</span>
+              </div>
+              <div class="card-body">
+                <div class="card-text" id="cardText"></div>
+              </div>
+              <div class="card-footer" id="cardFooter">
+                Complete the challenge to move forward — fail and move backward
+              </div>
             </div>
-          </div>
-          <div class="card-footer" id="cardFooter">
-            Complete the challenge to move forward — fail and move backward
           </div>
         </div>
       </div>
@@ -126,7 +134,7 @@
         </div>
       </div>
 
-      <!-- Pass / Fail — shown immediately after card is drawn -->
+      <!-- Pass / Fail -->
       <div class="outcome-panel" id="outcomePanel">
         <div class="outcome-head">Did they complete it?</div>
         <div class="outcome-body">
@@ -138,7 +146,7 @@
         </div>
       </div>
 
-      <!-- Roll Dice (shown after pass/fail is chosen) -->
+      <!-- Roll Dice -->
       <button class="roll-card-btn" id="rollCardBtn" onclick="rollForCard()" style="display:none">Roll the Dice</button>
 
       <!-- Dice Result Panel -->
